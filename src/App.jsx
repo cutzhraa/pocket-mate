@@ -65,6 +65,8 @@ export default function App() {
   const playAISound = (type) => {
     try {
       if (!('speechSynthesis' in window)) return;
+
+      window.speechSynthesis.resume();
       window.speechSynthesis.cancel();
 
       let textToSpeak = '';
@@ -77,6 +79,13 @@ export default function App() {
       }
 
       const utterance = new SpeechSynthesisUtterance(textToSpeak);
+      
+      const voices = window.speechSynthesis.getVoices();
+      const idVoice = voices.find(v => v.lang.includes('id') || v.lang.includes('ID'));
+      if (idVoice) {
+        utterance.voice = idVoice;
+      }
+      
       utterance.lang = 'id-ID';
       utterance.pitch = 1.3;
       utterance.rate = 1.1;
