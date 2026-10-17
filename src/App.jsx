@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Wallet, ArrowRightLeft, Sparkles, Banknote, Landmark, ShoppingBag, Scale, X, Check, Download, Upload, RotateCcw, Plus, Trash2, Edit2 } from 'lucide-react';
+import { Wallet, ArrowRightLeft, Sparkles, Landmark, ShoppingBag, Scale, X, Check, Download, Upload, RotateCcw, Plus, Trash2, Edit2 } from 'lucide-react';
 
 export default function App() {
   // Initial State Wallet (Default 0 Rupiah)
@@ -20,7 +20,7 @@ export default function App() {
   const [mascotMessage, setMascotMessage] = useState('Yuk atur dompet & catat pengeluaranmu! 🐱✨');
 
   // State Modal Transaksi
-  const [activeModal, setActiveModal] = useState(null); // null | 'warung' | 'jajanan' | 'tarik' | 'transfer' | 'wallet_mgr'
+  const [activeModal, setActiveModal] = useState(null); // null | 'warung' | 'jajanan' | 'transfer' | 'wallet_mgr'
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedSize, setSelectedSize] = useState('');
   const [price, setPrice] = useState(0);
@@ -53,7 +53,6 @@ export default function App() {
     localStorage.setItem('pm_history', JSON.stringify(history));
   }, [history]);
 
-  // Set default wallet id untuk form modal jika wallets berubah
   useEffect(() => {
     if (wallets.length > 0) {
       if (!selectedWallet) setSelectedWallet(wallets[0].id);
@@ -62,37 +61,60 @@ export default function App() {
     }
   }, [wallets]);
 
+  // Nada Alternatif via Web Audio API (Pasti Bunyi di Semua Browser)
+  const playFallbackSound = (type) => {
+    try {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(type === 'expense' ? 440 : 880, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+      
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.2);
+    } catch (e) {
+      console.log("Audio Context Error", e);
+    }
+  };
+
+  // Fitur Suara AI + Fallback Nada Jika Browser Tidak Mendukung
   const playAISound = (type) => {
     try {
-      if (!('speechSynthesis' in window)) return;
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.resume();
+        window.speechSynthesis.cancel();
 
-      window.speechSynthesis.resume();
-      window.speechSynthesis.cancel();
+        let textToSpeak = '';
+        if (type === 'expense') {
+          const phrases = ["Uang lagi, uang lagiii!", "Duh, melayang lagi uangnya~", "Irit-irit woy, jajan terus!"];
+          textToSpeak = phrases[Math.floor(Math.random() * phrases.length)];
+        } else if (type === 'income' || type === 'transfer') {
+          const phrases = ["Asiiiik cairrr!", "Horeee, dompet tebel lagi!", "Mantap! Masuk pak eko!"];
+          textToSpeak = phrases[Math.floor(Math.random() * phrases.length)];
+        }
 
-      let textToSpeak = '';
-      if (type === 'expense') {
-        const phrases = ["Uang lagi, uang lagiii!", "Duh, melayang lagi uangnya~", "Irit-irit woy, jajan terus!"];
-        textToSpeak = phrases[Math.floor(Math.random() * phrases.length)];
-      } else if (type === 'income' || type === 'transfer') {
-        const phrases = ["Asiiiik cairrr!", "Horeee, dompet tebel lagi!", "Mantap! Masuk pak eko!"];
-        textToSpeak = phrases[Math.floor(Math.random() * phrases.length)];
+        const utterance = new SpeechSynthesisUtterance(textToSpeak);
+        const voices = window.speechSynthesis.getVoices();
+        const idVoice = voices.find(v => v.lang.includes('id') || v.lang.includes('ID'));
+        if (idVoice) utterance.voice = idVoice;
+        
+        utterance.lang = 'id-ID';
+        utterance.pitch = 1.3;
+        utterance.rate = 1.1;
+
+        utterance.onerror = () => playFallbackSound(type);
+
+        window.speechSynthesis.speak(utterance);
+      } else {
+        playFallbackSound(type);
       }
-
-      const utterance = new SpeechSynthesisUtterance(textToSpeak);
-      
-      const voices = window.speechSynthesis.getVoices();
-      const idVoice = voices.find(v => v.lang.includes('id') || v.lang.includes('ID'));
-      if (idVoice) {
-        utterance.voice = idVoice;
-      }
-      
-      utterance.lang = 'id-ID';
-      utterance.pitch = 1.3;
-      utterance.rate = 1.1;
-
-      window.speechSynthesis.speak(utterance);
     } catch (e) {
-      console.log("Speech error", e);
+      playFallbackSound(type);
     }
   };
 
