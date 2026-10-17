@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Wallet, ArrowRightLeft, Sparkles, Banknote, Landmark, ShoppingBag, Scale, X, Check, Download, Upload, RotateCcw } from 'lucide-react';
+import { Wallet, ArrowRightLeft, Sparkles, Banknote, Landmark, ShoppingBag, Scale, X, Check, Download, Upload, RotateCcw, Plus, Trash2, Edit2 } from 'lucide-react';
 
 export default function App() {
+  // Initial State Wallet (Default 0 Rupiah)
   const [wallets, setWallets] = useState(() => {
     const saved = localStorage.getItem('pm_wallets');
     return saved ? JSON.parse(saved) : [
-      { id: 'bsi', name: 'BSI', balance: 1500000, color: 'bg-emerald-100 text-emerald-800 border-emerald-300', icon: '🏛️' },
-      { id: 'dana', name: 'DANA', balance: 250000, color: 'bg-sky-100 text-sky-800 border-sky-300', icon: '💙' },
-      { id: 'cash', name: 'Cash/Dompet', balance: 85000, color: 'bg-amber-100 text-amber-800 border-amber-300', icon: '👛' },
+      { id: 'bsi', name: 'BSI', balance: 0, color: 'bg-emerald-100 text-emerald-800 border-emerald-300', icon: '🏛️' },
+      { id: 'dana', name: 'DANA', balance: 0, color: 'bg-sky-100 text-sky-800 border-sky-300', icon: '💙' },
+      { id: 'cash', name: 'Cash/Dompet', balance: 0, color: 'bg-amber-100 text-amber-800 border-amber-300', icon: '👛' },
     ];
   });
 
@@ -16,17 +17,33 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  // State Maskot Reaksi Lucu
-  const [mascotMessage, setMascotMessage] = useState('Yuk catat pengeluaran hari ini! 😺✨');
+  const [mascotMessage, setMascotMessage] = useState('Yuk atur dompet & catat pengeluaranmu! 🐱✨');
 
-  const [activeModal, setActiveModal] = useState(null);
+  // State Modal Transaksi
+  const [activeModal, setActiveModal] = useState(null); // null | 'warung' | 'jajanan' | 'tarik' | 'transfer' | 'wallet_mgr'
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedSize, setSelectedSize] = useState('');
   const [price, setPrice] = useState(0);
-  const [selectedWallet, setSelectedWallet] = useState('cash');
+  const [selectedWallet, setSelectedWallet] = useState('');
 
-  const [fromWallet, setFromWallet] = useState('dana');
-  const [toWallet, setToWallet] = useState('cash');
+  const [fromWallet, setFromWallet] = useState('');
+  const [toWallet, setToWallet] = useState('');
+
+  // State Kelola Dompet (Tambah / Edit)
+  const [editingWallet, setEditingWallet] = useState(null);
+  const [walletForm, setWalletForm] = useState({ name: '', balance: 0, icon: '💳', color: 'bg-purple-100 text-purple-800 border-purple-300' });
+
+  // Pilihan Warna Pastel Dompet
+  const colorOptions = [
+    { label: 'Hijau (BSI/GoPay)', value: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
+    { label: 'Biru (DANA/BCA)', value: 'bg-sky-100 text-sky-800 border-sky-300' },
+    { label: 'Kuning (Cash/OVO)', value: 'bg-amber-100 text-amber-800 border-amber-300' },
+    { label: 'Ungu (OVO/Mandiri)', value: 'bg-purple-100 text-purple-800 border-purple-300' },
+    { label: 'Pink (ShopeePay)', value: 'bg-pink-100 text-pink-800 border-pink-300' },
+  ];
+
+  // Pilihan Ikon
+  const iconOptions = ['🏛️', '💙', '👛', '💳', '🟢', '📱', '🏦', '💰'];
 
   useEffect(() => {
     localStorage.setItem('pm_wallets', JSON.stringify(wallets));
@@ -36,25 +53,26 @@ export default function App() {
     localStorage.setItem('pm_history', JSON.stringify(history));
   }, [history]);
 
-  // Web Audio API Sound Effect (Tanpa File Luar)
+  // Set default wallet id untuk form modal jika wallets berubah
+  useEffect(() => {
+    if (wallets.length > 0) {
+      if (!selectedWallet) setSelectedWallet(wallets[0].id);
+      if (!fromWallet) setFromWallet(wallets[0].id);
+      if (!toWallet) setToWallet(wallets[1]?.id || wallets[0].id);
+    }
+  }, [wallets]);
+
   const playAISound = (type) => {
     try {
       if (!('speechSynthesis' in window)) return;
-
       window.speechSynthesis.cancel();
 
       let textToSpeak = '';
       if (type === 'expense') {
-        const phrases = [
-          "Uang lagi, uang lagiii!",
-          "Irit-irit woy, jajan terus!",
-        ];
+        const phrases = ["Uang lagi, uang lagiii!", "Duh, melayang lagi uangnya~", "Irit-irit woy, jajan terus!"];
         textToSpeak = phrases[Math.floor(Math.random() * phrases.length)];
       } else if (type === 'income' || type === 'transfer') {
-        const phrases = [
-          "Asiiiik cairrr!",
-          "Mantap, saldo bertambah!",
-        ];
+        const phrases = ["Asiiiik cairrr!", "Horeee, dompet tebel lagi!", "Mantap! Masuk pak eko!"];
         textToSpeak = phrases[Math.floor(Math.random() * phrases.length)];
       }
 
@@ -62,7 +80,7 @@ export default function App() {
       utterance.lang = 'id-ID';
       utterance.pitch = 1.3;
       utterance.rate = 1.1;
-      
+
       window.speechSynthesis.speak(utterance);
     } catch (e) {
       console.log("Speech error", e);
@@ -72,7 +90,7 @@ export default function App() {
   const warungItems = [
     { id: 'gula', name: 'Gula Pasir', icon: '🌾', prices: { '1/4 kg': 4500, '1/2 kg': 8500, '1 kg': 17000 } },
     { id: 'tepung', name: 'Tepung Terigu', icon: '🍞', prices: { '1/4 kg': 3500, '1/2 kg': 6500, '1 kg': 12000 } },
-    { id: 'telur', name: 'Telur Ayam', icon: '🥚', prices: { '1 Butir': 2000, '2 Butir': 4000, '5 Butir': 10000 } },
+    { id: 'telur', name: 'Telur Ayam', icon: '🥚', prices: { '1 Butir': 2000, '2 Butir': 4000, '5 Butir': 10000, '1/2 kg': 14000 } },
     { id: 'pisang', name: 'Pisang', icon: '🍌', prices: { '1 Sisir': 15000, '1/2 Sisir': 8000, 'Eceran': 3000 } },
   ];
 
@@ -87,27 +105,24 @@ export default function App() {
     setSelectedItem(item);
     setSelectedSize(size);
     setPrice(item.prices[size]);
-    setSelectedWallet('cash');
+    setSelectedWallet(wallets[0]?.id || 'cash');
     setActiveModal('warung');
   };
 
   const handleOpenJajanan = (qp) => {
     setSelectedItem(qp);
     setPrice(qp.price);
-    setSelectedWallet('cash');
+    setSelectedWallet(wallets[0]?.id || 'cash');
     setActiveModal('jajanan');
   };
 
-  const handleOpenTarik = () => {
-    setFromWallet('dana');
-    setToWallet('cash');
-    setPrice(100000);
-    setActiveModal('tarik');
-  };
-
   const handleOpenTransfer = () => {
-    setFromWallet('bsi');
-    setToWallet('dana');
+    if (wallets.length < 2) {
+      alert('Kamu butuh minimal 2 dompet untuk transaksi pindah saldo!');
+      return;
+    }
+    setFromWallet(wallets[0].id);
+    setToWallet(wallets[1].id);
     setPrice(50000);
     setActiveModal('transfer');
   };
@@ -139,13 +154,7 @@ export default function App() {
       ...prev
     ]);
 
-    // Respon Maskot Gemes
-    if (price >= 20000) {
-      setMascotMessage(`Waduh, lumayan juga nih ${title}! Tetep irit ya 😼💸`);
-    } else {
-      setMascotMessage(`Sip! ${title} udah dicatat. Dompet pinter! 😸✨`);
-    }
-
+    setMascotMessage(`Sip! ${title} udah dicatat. Tetap hemat ya! 🐱✨`);
     setActiveModal(null);
   };
 
@@ -160,24 +169,60 @@ export default function App() {
       return w;
     }));
 
-    const isTarik = activeModal === 'tarik';
-    const title = isTarik ? 'Tarik Tunai' : 'Transfer Antar Dompet';
-    const icon = isTarik ? '💸' : '🔄';
+    const fromName = wallets.find(w => w.id === fromWallet)?.name || '';
+    const toName = wallets.find(w => w.id === toWallet)?.name || '';
 
     setHistory(prev => [
       {
         id: Date.now(),
-        title: `${title} (${fromWallet.toUpperCase()} ➔ ${toWallet.toUpperCase()})`,
+        title: `Pindah Saldo (${fromName} ➔ ${toName})`,
         amount: price,
         type: 'transfer',
-        icon,
+        icon: '🔄',
         time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
       },
       ...prev
     ]);
 
-    setMascotMessage(`Pindah saldo berhasil! Saldo ${toWallet.toUpperCase()} makin tebal 👛🔥`);
+    setMascotMessage(`Pindah saldo sukses! ${toName} makin tebal 👛🔥`);
     setActiveModal(null);
+  };
+
+  // Handler Kelola Dompet
+  const handleOpenAddWallet = () => {
+    setEditingWallet(null);
+    setWalletForm({ name: '', balance: 0, icon: '💳', color: 'bg-purple-100 text-purple-800 border-purple-300' });
+    setActiveModal('wallet_mgr');
+  };
+
+  const handleOpenEditWallet = (w) => {
+    setEditingWallet(w.id);
+    setWalletForm({ name: w.name, balance: w.balance, icon: w.icon, color: w.color });
+    setActiveModal('wallet_mgr');
+  };
+
+  const handleSaveWalletForm = () => {
+    if (!walletForm.name.trim()) return;
+
+    if (editingWallet) {
+      setWallets(prev => prev.map(w => w.id === editingWallet ? { ...w, ...walletForm, balance: Number(walletForm.balance) } : w));
+    } else {
+      const newId = 'w_' + Date.now();
+      setWallets(prev => [...prev, { id: newId, ...walletForm, balance: Number(walletForm.balance) }]);
+    }
+
+    setActiveModal(null);
+  };
+
+  const handleDeleteWallet = (id) => {
+    if (wallets.length <= 1) {
+      alert('Minimal harus ada 1 dompet!');
+      return;
+    }
+    if (confirm('Yakin mau hapus dompet ini?')) {
+      setWallets(prev => prev.filter(w => w.id !== id));
+      setActiveModal(null);
+    }
   };
 
   const handleExportBackup = () => {
@@ -190,11 +235,9 @@ export default function App() {
     const dateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/\s+/g, '-').toLowerCase();
     const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }).replace(':', '.');
     
-    const fileName = `pocketmate-backup-${dateStr}-${timeStr}.json`;
-
     const link = document.createElement('a');
     link.href = url;
-    link.download = fileName;
+    link.download = `pocketmate-backup-${dateStr}-${timeStr}.json`;
     link.click();
   };
 
@@ -249,21 +292,34 @@ export default function App() {
 
         {/* Kartu Multi-Wallet */}
         <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-slate-600 flex items-center gap-1.5">
-            <Wallet className="w-4 h-4" /> Dompet Kamu
-          </h2>
+          <div className="flex justify-between items-center">
+            <h2 className="text-sm font-semibold text-slate-600 flex items-center gap-1.5">
+              <Wallet className="w-4 h-4" /> Dompet Kamu
+            </h2>
+            <button 
+              onClick={handleOpenAddWallet}
+              className="text-xs font-bold text-pink-600 hover:text-pink-700 flex items-center gap-1 bg-pink-100 hover:bg-pink-200 px-2.5 py-1 rounded-xl transition-colors cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" /> Tambah
+            </button>
+          </div>
+
           <div className="grid grid-cols-3 gap-2.5">
             {wallets.map((w) => (
               <div 
                 key={w.id} 
-                className={`p-3 rounded-2xl border-2 ${w.color} shadow-sm flex flex-col justify-between h-24 transition-transform active:scale-95 cursor-pointer`}
+                onClick={() => handleOpenEditWallet(w)}
+                className={`p-3 rounded-2xl border-2 ${w.color} shadow-sm flex flex-col justify-between h-24 transition-transform active:scale-95 cursor-pointer relative group`}
               >
                 <div className="flex justify-between items-center text-xs font-bold">
-                  <span>{w.name}</span>
+                  <span className="truncate max-w-[50px]">{w.name}</span>
                   <span>{w.icon}</span>
                 </div>
                 <div>
-                  <div className="text-[10px] text-slate-500">Saldo</div>
+                  <div className="text-[10px] text-slate-500 flex justify-between items-center">
+                    <span>Saldo</span>
+                    <Edit2 className="w-2.5 h-2.5 opacity-60" />
+                  </div>
                   <div className="text-xs font-extrabold truncate">
                     Rp {w.balance.toLocaleString('id-ID')}
                   </div>
@@ -278,23 +334,19 @@ export default function App() {
           <h2 className="text-sm font-semibold text-slate-600 flex items-center gap-1.5">
             <ArrowRightLeft className="w-4 h-4" /> Aksi Cepat
           </h2>
-          <div className="grid grid-cols-2 gap-3">
-            <button onClick={handleOpenTarik} className="p-3 bg-white border-2 border-sky-200 hover:border-sky-400 rounded-2xl shadow-sm text-left flex items-center gap-3 transition-transform active:scale-95 cursor-pointer">
-              <div className="p-2 bg-sky-100 rounded-xl text-sky-600"><Banknote className="w-5 h-5" /></div>
-              <div>
-                <div className="text-xs font-bold text-slate-700">Tarik Tunai</div>
-                <div className="text-[10px] text-slate-400">DANA ➔ Cash</div>
-              </div>
-            </button>
-
-            <button onClick={handleOpenTransfer} className="p-3 bg-white border-2 border-emerald-200 hover:border-emerald-400 rounded-2xl shadow-sm text-left flex items-center gap-3 transition-transform active:scale-95 cursor-pointer">
+          <button 
+            onClick={handleOpenTransfer} 
+            className="w-full p-3 bg-white border-2 border-emerald-200 hover:border-emerald-400 rounded-2xl shadow-sm text-left flex items-center justify-between transition-transform active:scale-95 cursor-pointer"
+          >
+            <div className="flex items-center gap-3">
               <div className="p-2 bg-emerald-100 rounded-xl text-emerald-600"><Landmark className="w-5 h-5" /></div>
               <div>
-                <div className="text-xs font-bold text-slate-700">Transfer BSI</div>
-                <div className="text-[10px] text-slate-400">BSI ➔ Wallet lain</div>
+                <div className="text-xs font-bold text-slate-700">Pindah Saldo / Transfer</div>
+                <div className="text-[10px] text-slate-400">Pindahkan uang antar dompet kamu</div>
               </div>
-            </button>
-          </div>
+            </div>
+            <ArrowRightLeft className="w-4 h-4 text-emerald-500" />
+          </button>
         </section>
 
         {/* Belanja Warung */}
@@ -413,7 +465,7 @@ export default function App() {
                 {wallets.map((w) => (
                   <button key={w.id} onClick={() => setSelectedWallet(w.id)} className={`py-2 px-1 text-[11px] font-bold rounded-xl border flex flex-col items-center gap-0.5 transition-all ${selectedWallet === w.id ? 'bg-pink-500 text-white border-pink-500 shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
                     <span>{w.icon}</span>
-                    <span>{w.name}</span>
+                    <span className="truncate max-w-[60px]">{w.name}</span>
                   </button>
                 ))}
               </div>
@@ -427,29 +479,29 @@ export default function App() {
       )}
 
       {/* Pop-up Modal Pindah Saldo */}
-      {(activeModal === 'tarik' || activeModal === 'transfer') && (
+      {activeModal === 'transfer' && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white w-full max-w-xs rounded-3xl p-5 shadow-2xl space-y-4">
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
-                <span className="text-xl">{activeModal === 'tarik' ? '💸' : '🔄'}</span>
-                <span>{activeModal === 'tarik' ? 'Tarik Tunai' : 'Transfer Antar Dompet'}</span>
+                <span className="text-xl">🔄</span>
+                <span>Pindah Saldo</span>
               </div>
               <button onClick={() => setActiveModal(null)} className="p-1 hover:bg-slate-100 rounded-full text-slate-400">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="bg-sky-50 p-4 rounded-2xl text-center space-y-2 border border-sky-100">
-              <div className="text-[10px] text-sky-600 font-bold uppercase tracking-wider">Nominal Saldo</div>
-              <div className="text-2xl font-black text-sky-600">
+            <div className="bg-emerald-50 p-4 rounded-2xl text-center space-y-2 border border-emerald-100">
+              <div className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">Nominal Saldo</div>
+              <div className="text-2xl font-black text-emerald-600">
                 Rp {price.toLocaleString('id-ID')}
               </div>
               <div className="flex justify-center gap-1.5 pt-1">
-                <button onClick={() => setPrice(p => Math.max(0, p - 50000))} className="text-[10px] font-bold bg-white border border-sky-200 text-sky-700 px-2 py-1 rounded-xl shadow-2xs">-50rb</button>
-                <button onClick={() => setPrice(p => Math.max(0, p - 10000))} className="text-[10px] font-bold bg-white border border-sky-200 text-sky-700 px-2 py-1 rounded-xl shadow-2xs">-10rb</button>
-                <button onClick={() => setPrice(p => p + 10000)} className="text-[10px] font-bold bg-white border border-sky-200 text-sky-700 px-2 py-1 rounded-xl shadow-2xs">+10rb</button>
-                <button onClick={() => setPrice(p => p + 50000)} className="text-[10px] font-bold bg-white border border-sky-200 text-sky-700 px-2 py-1 rounded-xl shadow-2xs">+50rb</button>
+                <button onClick={() => setPrice(p => Math.max(0, p - 50000))} className="text-[10px] font-bold bg-white border border-emerald-200 text-emerald-700 px-2 py-1 rounded-xl shadow-2xs">-50rb</button>
+                <button onClick={() => setPrice(p => Math.max(0, p - 10000))} className="text-[10px] font-bold bg-white border border-emerald-200 text-emerald-700 px-2 py-1 rounded-xl shadow-2xs">-10rb</button>
+                <button onClick={() => setPrice(p => p + 10000)} className="text-[10px] font-bold bg-white border border-emerald-200 text-emerald-700 px-2 py-1 rounded-xl shadow-2xs">+10rb</button>
+                <button onClick={() => setPrice(p => p + 50000)} className="text-[10px] font-bold bg-white border border-emerald-200 text-emerald-700 px-2 py-1 rounded-xl shadow-2xs">+50rb</button>
               </div>
             </div>
 
@@ -468,9 +520,91 @@ export default function App() {
               </div>
             </div>
 
-            <button onClick={handleSaveTransfer} className="w-full py-3 bg-sky-500 hover:bg-sky-600 text-white font-bold rounded-2xl shadow-lg shadow-sky-200 flex items-center justify-center gap-2 text-xs transition-transform active:scale-95 cursor-pointer">
+            <button onClick={handleSaveTransfer} className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-2xl shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 text-xs transition-transform active:scale-95 cursor-pointer">
               <Check className="w-4 h-4" /> Proses Pindah Saldo
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Pop-up Modal Kelola Dompet (Tambah / Edit) */}
+      {activeModal === 'wallet_mgr' && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white w-full max-w-xs rounded-3xl p-5 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center">
+              <div className="text-sm font-bold text-slate-700">
+                {editingWallet ? 'Edit Dompet' : 'Tambah Dompet Baru'}
+              </div>
+              <button onClick={() => setActiveModal(null)} className="p-1 hover:bg-slate-100 rounded-full text-slate-400">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="space-y-1">
+                <label className="font-semibold text-slate-500">Nama Dompet / Bank / e-Wallet</label>
+                <input 
+                  type="text" 
+                  placeholder="Misal: GoPay, Mandiri, Cash" 
+                  value={walletForm.name} 
+                  onChange={(e) => setWalletForm(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full p-2.5 bg-slate-50 border rounded-xl font-bold text-slate-700 focus:outline-pink-400"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-slate-500">Saldo Awal (Rp)</label>
+                <input 
+                  type="number" 
+                  value={walletForm.balance} 
+                  onChange={(e) => setWalletForm(prev => ({ ...prev, balance: e.target.value }))}
+                  className="w-full p-2.5 bg-slate-50 border rounded-xl font-bold text-slate-700 focus:outline-pink-400"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-slate-500">Pilih Ikon</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {iconOptions.map(ico => (
+                    <button 
+                      key={ico} 
+                      onClick={() => setWalletForm(prev => ({ ...prev, icon: ico }))}
+                      className={`p-2 rounded-xl text-lg border ${walletForm.icon === ico ? 'bg-pink-100 border-pink-400' : 'bg-slate-50 border-slate-100'}`}
+                    >
+                      {ico}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-slate-500">Warna Tampilan</label>
+                <select 
+                  value={walletForm.color} 
+                  onChange={(e) => setWalletForm(prev => ({ ...prev, color: e.target.value }))}
+                  className="w-full p-2.5 bg-slate-50 border rounded-xl font-bold text-slate-700"
+                >
+                  {colorOptions.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              {editingWallet && (
+                <button 
+                  onClick={() => handleDeleteWallet(editingWallet)}
+                  className="p-3 bg-rose-100 hover:bg-rose-200 text-rose-600 rounded-2xl font-bold cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+              <button 
+                onClick={handleSaveWalletForm} 
+                className="flex-1 py-3 bg-pink-500 hover:bg-pink-600 text-white font-bold rounded-2xl shadow-lg shadow-pink-200 flex items-center justify-center gap-2 text-xs transition-transform active:scale-95 cursor-pointer"
+              >
+                <Check className="w-4 h-4" /> Simpan Dompet
+              </button>
+            </div>
           </div>
         </div>
       )}
