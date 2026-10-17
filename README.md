@@ -30,7 +30,7 @@ PocketMate adalah aplikasi pemantau keuangan harian (*personal finance tracker*)
 
 ```bash
 # Clone repository
-git clone [https://github.com/cutzhraa/pocket-mate.git](https://github.com/cutzhraa/pocket-mate.git)
+git clone https://github.com/username/pocket-mate.git
 
 # Masuk ke folder proyek
 cd pocket-mate
